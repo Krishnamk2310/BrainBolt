@@ -1,0 +1,107 @@
+.wrapper {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 16px;
+  font-family: system-ui, Arial, sans-serif;
+}
+
+.centerScreen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.backLink {
+  color: #2563eb;
+  text-decoration: none;
+}
+.backLink:hover { text-decoration: underline; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.card {
+  background: white;
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.big {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.label {
+  font-size: 13px;
+  color: #666;
+}
+
+.section {
+  background: white;
+  border-radius: 10px;
+  padding: 22px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  margin-bottom: 30px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.barLabel {
+  width: 70px;
+  font-size: 14px;
+  color: #555;
+}
+
+.barTrack {
+  flex: 1;
+  margin: 0 10px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 20px;
+  background: #2563eb;
+}
+
+.barValue {
+  width: 30px;
+  text-align: right;
+  font-size: 13px;
+}
