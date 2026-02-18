@@ -203,4 +203,3 @@ brainbolt/
 3. Answer questions - difficulty adapts based on performance
 4. Check `/leaderboard` for rankings
 5. Check `/metrics` for your performance analytics
-
