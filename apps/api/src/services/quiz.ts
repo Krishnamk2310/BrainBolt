@@ -23,10 +23,7 @@ export async function getNextQuestion(userId: string): Promise<QuestionResponse>
   let userState = await redis.getCachedUserState(userId);
   
   if (!userState) {
-    userState = await db.getUserState(userId);
-    if (!userState) {
-      throw new Error('User state not found');
-    }
+    userState = await db.ensureUserState(userId);
     // Cache for future requests
     await redis.cacheUserState(userState);
   }
@@ -43,6 +40,11 @@ export async function getNextQuestion(userId: string): Promise<QuestionResponse>
     currentQuestionId: question.id,
     lastActivityAt: new Date(),
   });
+  
+  // Update cache to reflect new question
+  userState.currentQuestionId = question.id;
+  userState.lastActivityAt = new Date();
+  await redis.cacheUserState(userState);
   
   return {
     question,
@@ -80,10 +82,7 @@ export async function processAnswer(
   // Get current user state
   let userState = await redis.getCachedUserState(userId);
   if (!userState) {
-    userState = await db.getUserState(userId);
-    if (!userState) {
-      throw new Error('User state not found');
-    }
+    userState = await db.ensureUserState(userId);
   }
   
   // Validate state version - prevent answering old questions
@@ -97,9 +96,14 @@ export async function processAnswer(
   }
   
   // Get the question to check answer
-  const question = await db.getQuestionByDifficulty(userState.difficulty);
-  if (!question || question.id !== questionId) {
+  const question = await db.getQuestionById(questionId);
+  if (!question) {
     throw new Error('QUESTION_NOT_FOUND');
+  }
+
+  // Verify correctness
+  if (userState.currentQuestionId !== questionId) {
+    throw new Error('INVALID_QUESTION: This is not the current question');
   }
   
   const correct = selectedIndex === question.correctIndex;
@@ -131,7 +135,8 @@ export async function processAnswer(
     selectedIndex,
     correct,
     result.scoreDelta,
-    userState.difficulty
+    userState.difficulty,
+    answerIdempotencyKey
   );
   
   // Update Redis cache

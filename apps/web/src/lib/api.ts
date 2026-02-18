@@ -56,10 +56,7 @@ class ApiClient {
         };
       }
 
-      return {
-        success: true,
-        data,
-      };
+      return data;
     } catch (error) {
       return {
         success: false,
@@ -107,12 +104,16 @@ class ApiClient {
   }
 
   // Leaderboard
-  async getScoreLeaderboard(limit: number = 100): Promise<ApiResponse<any>> {
-    return this.request(`/v1/leaderboard/score?limit=${limit}`);
+  async getScoreLeaderboard(limit: number = 100, userId?: string): Promise<ApiResponse<any>> {
+    let url = `/v1/leaderboard/score?limit=${limit}`;
+    if (userId) url += `&userId=${userId}`;
+    return this.request(url);
   }
 
-  async getStreakLeaderboard(limit: number = 100): Promise<ApiResponse<any>> {
-    return this.request(`/v1/leaderboard/streak?limit=${limit}`);
+  async getStreakLeaderboard(limit: number = 100, userId?: string): Promise<ApiResponse<any>> {
+    let url = `/v1/leaderboard/streak?limit=${limit}`;
+    if (userId) url += `&userId=${userId}`;
+    return this.request(url);
   }
 }
 

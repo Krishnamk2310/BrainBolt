@@ -204,6 +204,3 @@ brainbolt/
 4. Check `/leaderboard` for rankings
 5. Check `/metrics` for your performance analytics
 
-## License
-
-MIT

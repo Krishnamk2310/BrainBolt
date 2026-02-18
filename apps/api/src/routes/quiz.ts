@@ -1,12 +1,3 @@
-/**
- * Quiz Routes
- * 
- * API endpoints for quiz operations:
- * - GET /v1/quiz/next - Get next question
- * - POST /v1/quiz/answer - Submit answer
- * - GET /v1/quiz/metrics - Get user metrics
- */
-
 import { Router, Request, Response } from 'express';
 import * as quizService from '../services/quiz';
 import * as db from '../services/database';
@@ -14,9 +5,8 @@ import { ApiResponse } from '@brainbolt/shared-types';
 
 const router = Router();
 
-// ============================================
 // GET /v1/quiz/next
-// ============================================
+
 
 router.get('/next', async (req: Request, res: Response) => {
   try {
@@ -44,6 +34,14 @@ router.get('/next', async (req: Request, res: Response) => {
     } as ApiResponse<any>);
   } catch (error) {
     console.error('Error in /v1/quiz/next:', error);
+    
+    if (error instanceof Error && error.message === 'User not found') {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: User not found',
+      } as ApiResponse<any>);
+    }
+
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error',
@@ -69,7 +67,7 @@ router.post('/answer', async (req: Request, res: Response) => {
     const { questionId, selectedIndex, stateVersion, answerIdempotencyKey } = req.body;
     
     // Validate required fields
-    if (!questionId || selectedIndex === undefined || !stateVersion || !answerIdempotencyKey) {
+    if (!questionId || selectedIndex === undefined || stateVersion === undefined || !answerIdempotencyKey) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: questionId, selectedIndex, stateVersion, answerIdempotencyKey',
@@ -130,7 +128,14 @@ router.post('/answer', async (req: Request, res: Response) => {
     }
     
     if (errorMessage.includes('STATE_VERSION_MISMATCH')) {
-      return res.status(400).json({
+      return res.status(409).json({
+        success: false,
+        error: errorMessage,
+      } as ApiResponse<any>);
+    }
+
+    if (errorMessage.includes('INVALID_QUESTION')) {
+      return res.status(409).json({
         success: false,
         error: errorMessage,
       } as ApiResponse<any>);

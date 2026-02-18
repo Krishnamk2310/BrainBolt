@@ -30,11 +30,24 @@ export default function QuizPage() {
 
   const fetchQuestion = async () => {
     setLoading(true);
+    setError('');
     const res = await api.getNextQuestion();
+    
     if (res.success) {
       setQuestion(res.data.question);
       setUserState(res.data.userState);
       setStateVersion(res.data.stateVersion);
+      // Reset UI state for new question
+      setResult(null);
+      setSelectedIndex(null);
+      setSubmitting(false);
+    } else {
+      if (res.error?.includes('Unauthorized') || res.error?.includes('User not found')) {
+        localStorage.clear();
+        router.push('/login');
+        return;
+      }
+      setError(res.error || 'Failed to load question');
     }
     setLoading(false);
   };
@@ -54,9 +67,17 @@ export default function QuizPage() {
       setResult(res.data.result);
       setUserState(res.data.userState);
       setTimeout(fetchQuestion, 2000);
+    } else {
+      // Handle conflict errors (out of sync state) by refreshing
+      if (res.error?.includes('INVALID_QUESTION') || res.error?.includes('STATE_VERSION_MISMATCH')) {
+        console.log('State out of sync, refreshing...', res.error);
+        fetchQuestion();
+        setSelectedIndex(null);
+        setSubmitting(false);
+        return;
+      }
+      setError(res.error || 'Failed to submit answer');
     }
-
-    setSubmitting(false);
   };
 
   if (loading) return <div className={styles.wrapper}>Loading...</div>;

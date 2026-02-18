@@ -19,6 +19,7 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { postgresPool, redisClient, testConnections } from './config';
+import { setIo } from './services/redis';
 
 // Routes
 import authRoutes from './routes/auth';
@@ -61,6 +62,8 @@ const io = new SocketIOServer(httpServer, {
     credentials: true,
   },
 });
+
+setIo(io);
 
 // Store io instance for use in routes
 app.set('io', io);

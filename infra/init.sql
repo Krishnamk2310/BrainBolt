@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS answer_log (
     correct BOOLEAN NOT NULL,
     score_delta INTEGER NOT NULL,
     difficulty INTEGER NOT NULL,
+    idempotency_key VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

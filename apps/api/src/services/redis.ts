@@ -6,7 +6,14 @@
  */
 
 import { redisClient } from '../config';
+import { Server } from 'socket.io';
 import { UserState, LeaderboardEntry, Question } from '@brainbolt/shared-types';
+
+let io: Server | null = null;
+
+export const setIo = (socketIo: Server) => {
+  io = socketIo;
+};
 
 // ============================================
 // REDIS KEY PREFIXES
@@ -44,6 +51,11 @@ export async function cacheUserState(state: UserState): Promise<void> {
   
   // Expire after 1 hour
   await redisClient.setex(key, 3600, data);
+
+  // Emit socket update
+  if (io) {
+    io.to(state.userId).emit('user:update', state);
+  }
 }
 
 /**
@@ -96,6 +108,11 @@ export async function updateScoreLeaderboard(
   pipeline.expire(`leaderboard:usernames`, 86400);
   
   await pipeline.exec();
+
+  // Emit leaderboard update
+  if (io) {
+    io.to('leaderboard').emit('leaderboard:update', { type: 'score' });
+  }
 }
 
 /**
@@ -106,6 +123,11 @@ export async function updateStreakLeaderboard(
   maxStreak: number
 ): Promise<void> {
   await redisClient.zadd(KEYS.LEADERBOARD_STREAK, maxStreak, userId);
+
+  // Emit leaderboard update
+  if (io) {
+    io.to('leaderboard').emit('leaderboard:update', { type: 'streak' });
+  }
 }
 
 /**

@@ -31,7 +31,24 @@ export async function createOrGetUser(username: string): Promise<User> {
   );
 
   if (existingUser.rows.length > 0) {
-    return existingUser.rows[0];
+    const user = existingUser.rows[0];
+    
+    // Ensure user state exists (in case of partial creation failure)
+    const existingState = await postgresPool.query(
+      'SELECT 1 FROM user_state WHERE user_id = $1',
+      [user.id]
+    );
+    
+    if (existingState.rows.length === 0) {
+      await postgresPool.query(
+        `INSERT INTO user_state 
+         (user_id, score, streak, max_streak, difficulty, confidence, multiplier, current_question_id, state_version, last_activity_at) 
+         VALUES ($1, 0, 0, 0, 1, 0, 1, NULL, 0, NOW())`,
+        [user.id]
+      );
+    }
+
+    return user;
   }
 
   // Create new user
@@ -92,6 +109,33 @@ export async function getQuestionByDifficulty(difficulty: number): Promise<Quest
       [difficulty]
     );
   }
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    text: row.text,
+    options: row.options,
+    correctIndex: row.correct_index,
+    difficulty: row.difficulty,
+    category: row.category,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Get question by ID
+ */
+export async function getQuestionById(questionId: string): Promise<Question | null> {
+  const result = await postgresPool.query(
+    `SELECT id, text, options, correct_index, difficulty, category, created_at 
+     FROM questions 
+     WHERE id = $1`,
+    [questionId]
+  );
 
   if (result.rows.length === 0) {
     return null;
@@ -211,10 +255,11 @@ export async function updateUserState(
     fields.push(`state_version = $${paramIndex++}`);
     values.push(state.stateVersion);
   }
-  if (state.lastActivityAt !== undefined) {
-    fields.push(`last_activity_at = $${paramIndex++}`);
-    values.push(state.lastActivityAt);
-  }
+  // last_activity_at is always updated to NOW() in the query below
+  // if (state.lastActivityAt !== undefined) {
+  //   fields.push(`last_activity_at = $${paramIndex++}`);
+  //   values.push(state.lastActivityAt);
+  // }
 
   if (fields.length === 0) {
     return;
@@ -225,6 +270,37 @@ export async function updateUserState(
     `UPDATE user_state SET ${fields.join(', ')}, last_activity_at = NOW() WHERE user_id = $${paramIndex}`,
     values
   );
+}
+
+/**
+ * Ensure user state exists (auto-recovery)
+ */
+export async function ensureUserState(userId: string): Promise<UserState> {
+  let state = await getUserState(userId);
+  
+  if (!state) {
+    // Check if user exists first
+    const userExists = await getUserById(userId);
+    if (!userExists) {
+      throw new Error('User not found');
+    }
+
+    // Create default state
+    await postgresPool.query(
+      `INSERT INTO user_state 
+       (user_id, score, streak, max_streak, difficulty, confidence, multiplier, current_question_id, state_version, last_activity_at) 
+       VALUES ($1, 0, 0, 0, 1, 0, 1, NULL, 0, NOW())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userId]
+    );
+    
+    state = await getUserState(userId);
+    if (!state) {
+      throw new Error('Failed to create user state');
+    }
+  }
+  
+  return state;
 }
 
 // ============================================
@@ -240,12 +316,13 @@ export async function logAnswer(
   selectedIndex: number,
   correct: boolean,
   scoreDelta: number,
-  difficulty: number
+  difficulty: number,
+  idempotencyKey: string
 ): Promise<void> {
   await postgresPool.query(
-    `INSERT INTO answer_log (id, user_id, question_id, selected_index, correct, score_delta, difficulty, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-    [uuidv4(), userId, questionId, selectedIndex, correct, scoreDelta, difficulty]
+    `INSERT INTO answer_log (id, user_id, question_id, selected_index, correct, score_delta, difficulty, idempotency_key, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+    [uuidv4(), userId, questionId, selectedIndex, correct, scoreDelta, difficulty, idempotencyKey]
   );
 }
 
@@ -254,7 +331,7 @@ export async function logAnswer(
  */
 export async function checkAnswerIdempotency(key: string): Promise<boolean> {
   const result = await postgresPool.query(
-    'SELECT 1 FROM answer_log WHERE id = $1',
+    'SELECT 1 FROM answer_log WHERE idempotency_key = $1',
     [key]
   );
   return result.rows.length > 0;
@@ -366,4 +443,30 @@ export async function getDifficultyDistribution(userId: string): Promise<Record<
     distribution[row.difficulty] = parseInt(row.count);
   }
   return distribution;
+}
+
+/**
+ * Get user rank by score
+ */
+export async function getUserRankByScore(userId: string): Promise<number> {
+  const result = await postgresPool.query(
+    `SELECT COUNT(*) + 1 as rank
+     FROM user_state
+     WHERE score > (SELECT score FROM user_state WHERE user_id = $1)`,
+    [userId]
+  );
+  return parseInt(result.rows[0].rank);
+}
+
+/**
+ * Get user rank by streak
+ */
+export async function getUserRankByStreak(userId: string): Promise<number> {
+  const result = await postgresPool.query(
+    `SELECT COUNT(*) + 1 as rank
+     FROM user_state
+     WHERE max_streak > (SELECT max_streak FROM user_state WHERE user_id = $1)`,
+    [userId]
+  );
+  return parseInt(result.rows[0].rank);
 }

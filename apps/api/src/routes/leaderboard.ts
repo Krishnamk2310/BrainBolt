@@ -1,11 +1,3 @@
-/**
- * Leaderboard Routes
- * 
- * API endpoints for leaderboard operations:
- * - GET /v1/leaderboard/score - Get top users by score
- * - GET /v1/leaderboard/streak - Get top users by streak
- */
-
 import { Router, Request, Response } from 'express';
 import * as redis from '../services/redis';
 import * as db from '../services/database';
@@ -13,9 +5,7 @@ import { ApiResponse, LeaderboardEntry } from '@brainbolt/shared-types';
 
 const router = Router();
 
-// ============================================
 // GET /v1/leaderboard/score
-// ============================================
 
 router.get('/score', async (req: Request, res: Response) => {
   try {
@@ -36,6 +26,29 @@ router.get('/score', async (req: Request, res: Response) => {
       }));
     }
     
+    // Check if requesting user is in the list
+    const userId = req.query.userId as string;
+    if (userId) {
+      const userInList = entries.find(e => e.userId === userId);
+      if (!userInList) {
+        // User not in top list, fetch their specific rank
+        const userState = await db.getUserState(userId);
+        if (userState) {
+          const rank = await db.getUserRankByScore(userId);
+          const user = await db.getUserById(userId);
+          
+          if (user) {
+            entries.push({
+              rank,
+              userId: user.id,
+              username: user.username,
+              value: userState.score,
+            });
+          }
+        }
+      }
+    }
+    
     return res.json({
       success: true,
       data: entries,
@@ -49,9 +62,8 @@ router.get('/score', async (req: Request, res: Response) => {
   }
 });
 
-// ============================================
 // GET /v1/leaderboard/streak
-// ============================================
+
 
 router.get('/streak', async (req: Request, res: Response) => {
   try {
@@ -70,6 +82,29 @@ router.get('/streak', async (req: Request, res: Response) => {
         username: row.username,
         value: row.max_streak,
       }));
+    }
+    
+    // Check if requesting user is in the list
+    const userId = req.query.userId as string;
+    if (userId) {
+      const userInList = entries.find(e => e.userId === userId);
+      if (!userInList) {
+        // User not in top list, fetch their specific rank
+        const userState = await db.getUserState(userId);
+        if (userState) {
+          const rank = await db.getUserRankByStreak(userId);
+          const user = await db.getUserById(userId);
+          
+          if (user) {
+            entries.push({
+              rank,
+              userId: user.id,
+              username: user.username,
+              value: userState.maxStreak,
+            });
+          }
+        }
+      }
     }
     
     return res.json({

@@ -28,10 +28,11 @@ export default function LeaderboardPage() {
 
   const fetchLeaderboard = async () => {
     setLoading(true);
+    const userId = localStorage.getItem('brainbolt_userId');
     const response =
       activeTab === 'score'
-        ? await api.getScoreLeaderboard(50)
-        : await api.getStreakLeaderboard(50);
+        ? await api.getScoreLeaderboard(50, userId || undefined)
+        : await api.getStreakLeaderboard(50, userId || undefined);
 
     if (response.success && response.data) setEntries(response.data);
     setLoading(false);
